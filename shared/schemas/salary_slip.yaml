@@ -1,0 +1,98 @@
+doc_type: salary_slip
+version: "1.0"
+model: gemini-1.5-flash
+
+confidence_thresholds:
+  employee_name: 0.88
+  employee_id: 0.90
+  designation: 0.85
+  department: 0.82
+  month: 0.90
+  year: 0.90
+  basic_salary: 0.92
+  hra: 0.88
+  gross_salary: 0.92
+  total_deductions: 0.90
+  net_salary: 0.92
+  default: 0.85
+
+fields:
+  - name: employee_name
+    type: string
+    required: true
+    pattern: null
+    example: "RAHUL KUMAR SHARMA"
+
+  - name: employee_id
+    type: string
+    required: false
+    pattern: null
+    example: "EMP001234"
+
+  - name: designation
+    type: string
+    required: false
+    pattern: null
+    example: "Software Engineer"
+
+  - name: department
+    type: string
+    required: false
+    pattern: null
+    example: "Engineering"
+
+  - name: month
+    type: integer
+    required: true
+    pattern: null
+    example: 3
+
+  - name: year
+    type: integer
+    required: true
+    pattern: null
+    example: 2024
+
+  - name: basic_salary
+    type: number
+    required: true
+    pattern: null
+    example: 60000
+
+  - name: hra
+    type: number
+    required: false
+    pattern: null
+    example: 24000
+
+  - name: gross_salary
+    type: number
+    required: true
+    pattern: null
+    example: 100000
+
+  - name: total_deductions
+    type: number
+    required: true
+    pattern: null
+    example: 12000
+
+  - name: net_salary
+    type: number
+    required: true
+    pattern: null
+    example: 88000
+
+validation_rules:
+  - rule: net_salary_reconciliation
+    description: gross_salary - total_deductions should equal net_salary (within tolerance)
+  - rule: month_range
+    description: Month must be between 1 and 12
+  - rule: year_reasonable
+    description: Year must be between 2000 and current year + 1
+
+prompt_template_ref: prompts/salary_slip_extraction_v1.jinja2
+
+post_processing:
+  parse_currency: true
+  strip_whitespace: true

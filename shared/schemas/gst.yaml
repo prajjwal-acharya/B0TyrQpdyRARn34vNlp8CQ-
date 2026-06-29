@@ -1,0 +1,71 @@
+doc_type: gst
+version: "1.0"
+model: gemini-1.5-flash
+
+confidence_thresholds:
+  gstin: 0.97
+  legal_name: 0.88
+  trade_name: 0.85
+  registration_date: 0.90
+  business_type: 0.85
+  state_code: 0.92
+  status: 0.90
+  default: 0.85
+
+fields:
+  - name: gstin
+    type: string
+    required: true
+    pattern: "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$"
+    example: "27ABCDE1234F1Z5"
+
+  - name: legal_name
+    type: string
+    required: true
+    pattern: null
+    example: "ACME TECHNOLOGIES PRIVATE LIMITED"
+
+  - name: trade_name
+    type: string
+    required: false
+    pattern: null
+    example: "ACME Tech"
+
+  - name: registration_date
+    type: date
+    required: true
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "01/07/2017"
+
+  - name: business_type
+    type: string
+    required: true
+    pattern: null
+    example: "Private Limited Company"
+
+  - name: state_code
+    type: string
+    required: true
+    pattern: "^[0-9]{2}$"
+    example: "27"
+
+  - name: status
+    type: string
+    required: true
+    pattern: "^(Active|Cancelled|Suspended)$"
+    example: "Active"
+
+validation_rules:
+  - rule: gstin_format
+    description: GSTIN must match the 15-character GST format
+  - rule: gstin_state_match
+    description: First 2 digits of GSTIN must match state_code
+  - rule: gstin_checksum
+    description: Last character of GSTIN is a checksum digit
+
+prompt_template_ref: prompts/gst_extraction_v1.jinja2
+
+post_processing:
+  normalize_dates: true
+  uppercase_strings: true
+  strip_whitespace: true

@@ -1,0 +1,85 @@
+doc_type: itr
+version: "1.0"
+model: gemini-1.5-flash
+
+confidence_thresholds:
+  pan_number: 0.95
+  assessment_year: 0.92
+  full_name: 0.88
+  address: 0.80
+  gross_total_income: 0.90
+  total_tax_payable: 0.90
+  refund_amount: 0.88
+  itr_form_type: 0.92
+  filing_date: 0.88
+  default: 0.85
+
+fields:
+  - name: pan_number
+    type: string
+    required: true
+    pattern: "^[A-Z]{5}\\d{4}[A-Z]$"
+    example: "ABCDE1234F"
+
+  - name: assessment_year
+    type: string
+    required: true
+    pattern: "^\\d{4}-\\d{2}$"
+    example: "2023-24"
+
+  - name: full_name
+    type: string
+    required: true
+    pattern: null
+    example: "RAHUL KUMAR SHARMA"
+
+  - name: address
+    type: string
+    required: false
+    pattern: null
+    example: "123 MG Road, Mumbai, Maharashtra 400001"
+
+  - name: gross_total_income
+    type: number
+    required: true
+    pattern: null
+    example: 1200000
+
+  - name: total_tax_payable
+    type: number
+    required: true
+    pattern: null
+    example: 95000
+
+  - name: refund_amount
+    type: number
+    required: false
+    pattern: null
+    example: 5000
+
+  - name: itr_form_type
+    type: string
+    required: true
+    pattern: "^ITR-[1-7U]$"
+    example: "ITR-1"
+
+  - name: filing_date
+    type: date
+    required: false
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "31/07/2023"
+
+validation_rules:
+  - rule: pan_format
+    description: Validate PAN against standard alphanumeric pattern
+  - rule: income_positive
+    description: Gross total income must be >= 0
+  - rule: tax_non_negative
+    description: Total tax payable must be >= 0
+
+prompt_template_ref: prompts/itr_extraction_v1.jinja2
+
+post_processing:
+  normalize_dates: true
+  parse_currency: true
+  strip_whitespace: true

@@ -1,0 +1,232 @@
+version: "3.9"
+
+# All services share this network
+networks:
+  docnet:
+    driver: bridge
+
+volumes:
+  pgdata:
+  miniodata:
+  grafanadata:
+  chromadata:
+
+services:
+  # ---------------------------------------------------------------------------
+  # Ingestion API (FastAPI)
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env
+    networks:
+      - docnet
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Celery worker
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    command: celery -A pipeline.celery_app worker --loglevel=info --concurrency=2
+    env_file: .env
+    networks:
+      - docnet
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat (Phase 9 nightly learning job)
+  # ---------------------------------------------------------------------------
+  worker-beat:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    command: celery -A pipeline.celery_app beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file: .env
+    networks:
+      - docnet
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Flower (Celery monitoring)
+  # ---------------------------------------------------------------------------
+  flower:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    command: celery -A pipeline.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    env_file: .env
+    networks:
+      - docnet
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - docnet
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL + pgvector
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-docstore}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - docnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-docstore}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MinIO (object storage)
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - miniodata:/data
+    networks:
+      - docnet
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # ChromaDB (vector store)
+  # ---------------------------------------------------------------------------
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadata:/chroma/chroma
+    networks:
+      - docnet
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Label Studio (HITL)
+  # ---------------------------------------------------------------------------
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    ports:
+      - "8080:8080"
+    env_file: .env
+    networks:
+      - docnet
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Prometheus
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - docnet
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Grafana
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    networks:
+      - docnet
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Loki (log aggregation)
+  # ---------------------------------------------------------------------------
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infrastructure/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - docnet
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Fluent Bit (log shipper)
+  # ---------------------------------------------------------------------------
+  fluent-bit:
+    image: fluent/fluent-bit:latest
+    volumes:
+      - ./infrastructure/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+    networks:
+      - docnet
+    depends_on:
+      - loki
+    restart: unless-stopped

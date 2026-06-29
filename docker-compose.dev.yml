@@ -1,0 +1,28 @@
+version: "3.9"
+
+# Development overrides — hot reload via volume mounts
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#        OR:  make dev
+
+services:
+  api:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./services/ingestion:/app:cached
+      - ./shared:/app/shared:cached
+    environment:
+      ENVIRONMENT: development
+
+  worker:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    command: celery -A pipeline.celery_app worker --loglevel=debug --concurrency=1
+    volumes:
+      - ./services/ingestion:/app:cached
+      - ./shared:/app/shared:cached
+    environment:
+      ENVIRONMENT: development
