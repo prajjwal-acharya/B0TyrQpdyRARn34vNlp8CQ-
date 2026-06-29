@@ -1,0 +1,92 @@
+doc_type: bank_statement
+version: "1.0"
+model: gemini-1.5-flash
+
+confidence_thresholds:
+  account_holder_name: 0.88
+  account_number: 0.92
+  ifsc_code: 0.95
+  bank_name: 0.90
+  branch: 0.82
+  statement_period_from: 0.88
+  statement_period_to: 0.88
+  opening_balance: 0.90
+  closing_balance: 0.90
+  transactions: 0.80
+  default: 0.82
+
+fields:
+  - name: account_holder_name
+    type: string
+    required: true
+    pattern: null
+    example: "RAHUL KUMAR SHARMA"
+
+  - name: account_number
+    type: string
+    required: true
+    pattern: "^\\d{9,18}$"
+    example: "123456789012"
+
+  - name: ifsc_code
+    type: string
+    required: true
+    pattern: "^[A-Z]{4}0[A-Z0-9]{6}$"
+    example: "SBIN0001234"
+
+  - name: bank_name
+    type: string
+    required: true
+    pattern: null
+    example: "State Bank of India"
+
+  - name: branch
+    type: string
+    required: false
+    pattern: null
+    example: "Andheri West"
+
+  - name: statement_period_from
+    type: date
+    required: true
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "01/04/2023"
+
+  - name: statement_period_to
+    type: date
+    required: true
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "31/03/2024"
+
+  - name: opening_balance
+    type: number
+    required: true
+    pattern: null
+    example: 50000.00
+
+  - name: closing_balance
+    type: number
+    required: true
+    pattern: null
+    example: 75000.00
+
+  - name: transactions
+    type: array
+    required: false
+    pattern: null
+    example: []
+
+validation_rules:
+  - rule: ifsc_format
+    description: Validate IFSC against RBI format
+  - rule: period_from_before_to
+    description: statement_period_from must be before statement_period_to
+  - rule: balance_reconciliation
+    description: Opening balance +/- transactions should reconcile with closing balance (within tolerance)
+
+prompt_template_ref: prompts/bank_statement_extraction_v1.jinja2
+
+post_processing:
+  normalize_dates: true
+  parse_currency: true
+  strip_whitespace: true

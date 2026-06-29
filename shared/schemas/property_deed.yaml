@@ -1,0 +1,106 @@
+doc_type: property_deed
+version: "1.0"
+model: gemini-1.5-flash
+
+confidence_thresholds:
+  deed_type: 0.88
+  registration_number: 0.92
+  registration_date: 0.90
+  seller_name: 0.85
+  buyer_name: 0.85
+  property_address: 0.80
+  survey_number: 0.85
+  area: 0.88
+  area_unit: 0.88
+  consideration_amount: 0.90
+  stamp_duty: 0.88
+  sub_registrar_office: 0.82
+  default: 0.80
+
+fields:
+  - name: deed_type
+    type: string
+    required: true
+    pattern: null
+    example: "Sale Deed"
+
+  - name: registration_number
+    type: string
+    required: true
+    pattern: null
+    example: "SR-MH-2023-001234"
+
+  - name: registration_date
+    type: date
+    required: true
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "15/03/2023"
+
+  - name: seller_name
+    type: string
+    required: true
+    pattern: null
+    example: "SURESH KUMAR PATEL"
+
+  - name: buyer_name
+    type: string
+    required: true
+    pattern: null
+    example: "RAHUL KUMAR SHARMA"
+
+  - name: property_address
+    type: string
+    required: true
+    pattern: null
+    example: "Plot No. 123, Sector 5, Navi Mumbai, Maharashtra 400706"
+
+  - name: survey_number
+    type: string
+    required: false
+    pattern: null
+    example: "Survey No. 45/2A"
+
+  - name: area
+    type: number
+    required: true
+    pattern: null
+    example: 1200
+
+  - name: area_unit
+    type: string
+    required: true
+    pattern: "^(sq_ft|sq_m|acres|hectares|guntha)$"
+    example: "sq_ft"
+
+  - name: consideration_amount
+    type: number
+    required: true
+    pattern: null
+    example: 7500000
+
+  - name: stamp_duty
+    type: number
+    required: false
+    pattern: null
+    example: 450000
+
+  - name: sub_registrar_office
+    type: string
+    required: false
+    pattern: null
+    example: "Sub-Registrar, Thane"
+
+validation_rules:
+  - rule: area_positive
+    description: Area must be > 0
+  - rule: consideration_positive
+    description: Consideration amount must be > 0
+  - rule: stamp_duty_reasonable
+    description: Stamp duty should be a plausible percentage of consideration amount
+
+prompt_template_ref: prompts/property_deed_extraction_v1.jinja2
+
+post_processing:
+  normalize_dates: true
+  parse_currency: true
+  strip_whitespace: true

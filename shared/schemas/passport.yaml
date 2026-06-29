@@ -1,0 +1,99 @@
+doc_type: passport
+version: "1.0"
+model: gemini-1.5-flash
+
+confidence_thresholds:
+  surname: 0.90
+  given_names: 0.90
+  nationality: 0.85
+  date_of_birth: 0.92
+  sex: 0.88
+  place_of_birth: 0.80
+  date_of_issue: 0.90
+  date_of_expiry: 0.92
+  passport_number: 0.95
+  mrz_line1: 0.95
+  mrz_line2: 0.95
+  default: 0.85
+
+fields:
+  - name: surname
+    type: string
+    required: true
+    pattern: "^[A-Z ]+$"
+    example: "SHARMA"
+
+  - name: given_names
+    type: string
+    required: true
+    pattern: "^[A-Z ]+$"
+    example: "RAHUL KUMAR"
+
+  - name: nationality
+    type: string
+    required: true
+    pattern: "^[A-Z]{3}$"
+    example: "IND"
+
+  - name: date_of_birth
+    type: date
+    required: true
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "15/08/1990"
+
+  - name: sex
+    type: string
+    required: true
+    pattern: "^[MFX]$"
+    example: "M"
+
+  - name: place_of_birth
+    type: string
+    required: false
+    pattern: null
+    example: "MUMBAI"
+
+  - name: date_of_issue
+    type: date
+    required: true
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "10/03/2018"
+
+  - name: date_of_expiry
+    type: date
+    required: true
+    pattern: "^\\d{2}/\\d{2}/\\d{4}$"
+    example: "09/03/2028"
+
+  - name: passport_number
+    type: string
+    required: true
+    pattern: "^[A-Z]\\d{7}$"
+    example: "A1234567"
+
+  - name: mrz_line1
+    type: string
+    required: true
+    pattern: null
+    example: "P<INDSHARMA<<RAHUL<KUMAR<<<<<<<<<<<<<<<<<<<<<<"
+
+  - name: mrz_line2
+    type: string
+    required: true
+    pattern: null
+    example: "A12345671IND9008150M2803099<<<<<<<<<<<<<<06"
+
+validation_rules:
+  - rule: mrz_checksum
+    description: Validate MRZ check digits per ICAO Doc 9303
+  - rule: expiry_not_past
+    description: Ensure date_of_expiry is in the future
+  - rule: issue_before_expiry
+    description: Ensure date_of_issue is before date_of_expiry
+
+prompt_template_ref: prompts/passport_extraction_v1.jinja2
+
+post_processing:
+  normalize_dates: true
+  uppercase_strings: true
+  strip_whitespace: true

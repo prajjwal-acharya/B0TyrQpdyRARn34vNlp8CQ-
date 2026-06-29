@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "adaptive-doc-intelligence"
+version = "0.1.0"
+description = "Adaptive AI Document Intelligence Platform"
+requires-python = ">=3.11"
+dependencies = [
+    # LangChain / LangGraph / LangSmith
+    "langchain",
+    "langgraph",
+    "langchain-google-genai",
+    "langchain-groq",
+    "langsmith",
+    # FastAPI + server
+    "fastapi",
+    "uvicorn[standard]",
+    # Celery + task queue
+    "celery",
+    "redis",
+    "flower",
+    # Database
+    "sqlalchemy",
+    "alembic",
+    "psycopg2-binary",
+    # Pydantic
+    "pydantic",
+    "pydantic-settings",
+    # Vector store
+    "chromadb",
+    # Document processing
+    "pymupdf",
+    "opencv-python-headless",
+    "paddleocr",
+    "langdetect",
+    "imagehash",
+    # HTTP + validation
+    "httpx",
+    # Object storage
+    "minio",
+    # Utilities
+    "pillow",
+    "numpy",
+    "pyyaml",
+    "python-dotenv",
+    # Observability
+    "prometheus-client",
+    "opentelemetry-sdk",
+    # PII / privacy
+    "presidio-analyzer",
+    "presidio-anonymizer",
+    # Dev / test
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "mypy",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["shared", "services"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+exclude = ["tests/", "scripts/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

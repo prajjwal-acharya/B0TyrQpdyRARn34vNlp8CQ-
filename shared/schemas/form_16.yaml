@@ -1,0 +1,77 @@
+doc_type: form_16
+version: "1.0"
+model: gemini-1.5-flash
+
+confidence_thresholds:
+  employer_name: 0.88
+  employer_tan: 0.95
+  employer_pan: 0.95
+  employee_name: 0.88
+  employee_pan: 0.95
+  financial_year: 0.92
+  gross_salary: 0.90
+  tds_deducted: 0.92
+  default: 0.85
+
+fields:
+  - name: employer_name
+    type: string
+    required: true
+    pattern: null
+    example: "ACME Technologies Pvt Ltd"
+
+  - name: employer_tan
+    type: string
+    required: true
+    pattern: "^[A-Z]{4}\\d{5}[A-Z]$"
+    example: "MUMA12345B"
+
+  - name: employer_pan
+    type: string
+    required: true
+    pattern: "^[A-Z]{5}\\d{4}[A-Z]$"
+    example: "AACCA1234B"
+
+  - name: employee_name
+    type: string
+    required: true
+    pattern: null
+    example: "RAHUL KUMAR SHARMA"
+
+  - name: employee_pan
+    type: string
+    required: true
+    pattern: "^[A-Z]{5}\\d{4}[A-Z]$"
+    example: "ABCDE1234F"
+
+  - name: financial_year
+    type: string
+    required: true
+    pattern: "^\\d{4}-\\d{2}$"
+    example: "2023-24"
+
+  - name: gross_salary
+    type: number
+    required: true
+    pattern: null
+    example: 1200000
+
+  - name: tds_deducted
+    type: number
+    required: true
+    pattern: null
+    example: 95000
+
+validation_rules:
+  - rule: pan_format
+    description: Both employer and employee PAN must match PAN pattern
+  - rule: tan_format
+    description: Employer TAN must match TAN pattern
+  - rule: tds_non_negative
+    description: TDS deducted must be >= 0
+
+prompt_template_ref: prompts/form_16_extraction_v1.jinja2
+
+post_processing:
+  parse_currency: true
+  strip_whitespace: true
