@@ -7,20 +7,34 @@ or `property_deed`.
 ## Responsibilities
 
 - Receive preprocessed document text / metadata from Phase 1
-- Use Groq/Llama3 via a LangGraph conditional edge to classify the doc type
+- Use Groq/Llama3 (escalating to Gemini Flash when unsure) to classify the doc type
 - Write the detected `doc_type` back to the graph state
-- Route the graph to the appropriate doc-type-specific extraction subgraph (Phase 5)
+- Use a LangGraph conditional edge, keyed on `doc_type`, to dispatch into the
+  matching doc-type extraction subgraph (Phase 5, currently stubbed in
+  `services/extraction/graphs`)
+- Explicitly route unknown or low-confidence classifications to a
+  `fallback_review` branch instead of silently defaulting to a doc type
 
 ## Key Tech
 
 - LangGraph (routing node + conditional edge)
-- Groq API (Llama3 model)
+- Groq API (Llama3 model) + Gemini Flash (multimodal fallback)
 - LangSmith (tracing)
 
 ## Directory Layout
 
 ```
 router/
-├── router/      # routing node implementation (to be created)
+├── router/
+│   ├── node.py       # classify_document — Groq fast-path, Gemini fallback
+│   ├── fallback.py   # explicit fallback_review branch for unknown/low-confidence doc_type
+│   ├── graph.py       # conditional dispatch: classify -> doc-type subgraph | fallback
+│   ├── schemas.py
+│   └── main.py
 └── Dockerfile
 ```
+
+`LOW_CONFIDENCE_THRESHOLD` (env var, default `0.5`) controls the floor on the
+*final* classification confidence (after any Groq → Gemini escalation) below
+which a document is routed to `fallback_review` rather than a doc-type
+subgraph.
