@@ -38,6 +38,7 @@ dependencies = [
     "imagehash",
     # HTTP + validation
     "httpx",
+    "python-multipart",
     # Object storage
     "minio",
     # Utilities

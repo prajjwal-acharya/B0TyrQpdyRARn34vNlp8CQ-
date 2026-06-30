@@ -3,16 +3,17 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ---------------------------------------------------------------------------
--- documents — raw document metadata
+-- documents — raw document metadata (job_id = id)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS documents (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     filename    TEXT NOT NULL,
+    file_hash   TEXT NOT NULL UNIQUE,
+    mime_type   TEXT,
     doc_type    TEXT,
     status      TEXT NOT NULL DEFAULT 'pending',
     minio_key   TEXT,
-    hash        TEXT,
-    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -81,8 +82,9 @@ CREATE TABLE IF NOT EXISTS schema_versions (
 );
 
 -- Indexes for common query patterns
-CREATE INDEX IF NOT EXISTS idx_documents_doc_type  ON documents(doc_type);
-CREATE INDEX IF NOT EXISTS idx_documents_status    ON documents(status);
+CREATE INDEX IF NOT EXISTS idx_documents_file_hash  ON documents(file_hash);
+CREATE INDEX IF NOT EXISTS idx_documents_doc_type   ON documents(doc_type);
+CREATE INDEX IF NOT EXISTS idx_documents_status     ON documents(status);
 CREATE INDEX IF NOT EXISTS idx_extracted_fields_document ON extracted_fields(document_id);
-CREATE INDEX IF NOT EXISTS idx_entities_doc_type   ON entities(doc_type);
-CREATE INDEX IF NOT EXISTS idx_entities_embedding  ON entities USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_entities_doc_type    ON entities(doc_type);
+CREATE INDEX IF NOT EXISTS idx_entities_embedding   ON entities USING ivfflat (embedding vector_cosine_ops);
