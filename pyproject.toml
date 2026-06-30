@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "adaptive-doc-intelligence"
@@ -57,6 +57,10 @@ dependencies = [
     "ruff",
     "mypy",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shared*", "services*", "infrastructure*"]
 
 [tool.ruff]
 line-length = 100
