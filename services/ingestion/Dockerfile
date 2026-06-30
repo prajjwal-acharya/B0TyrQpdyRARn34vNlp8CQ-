@@ -7,10 +7,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libgl1 \
     libglib2.0-0 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]" || pip install --no-cache-dir fastapi uvicorn celery redis flower sqlalchemy alembic psycopg2-binary pydantic pydantic-settings pymupdf httpx minio python-dotenv pyyaml
+# Install all declared dependencies; fallback lists the full set explicitly
+RUN pip install --no-cache-dir -e "." || pip install --no-cache-dir \
+    fastapi uvicorn[standard] \
+    celery redis flower \
+    sqlalchemy alembic psycopg2-binary \
+    pydantic pydantic-settings \
+    pymupdf \
+    opencv-python-headless \
+    paddleocr \
+    langdetect \
+    imagehash \
+    httpx python-multipart \
+    minio \
+    pillow numpy \
+    pyyaml python-dotenv \
+    prometheus-client
 
 COPY services/ingestion/ .
 COPY shared /app/shared

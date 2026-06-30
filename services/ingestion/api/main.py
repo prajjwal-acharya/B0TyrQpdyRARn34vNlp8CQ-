@@ -1,8 +1,10 @@
 import hashlib
 import io
+import logging
 import uuid
 
 import imagehash
+from celery import chain as celery_chain
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from minio import Minio
 from minio.error import S3Error
@@ -12,6 +14,13 @@ from sqlalchemy.orm import Session
 from shared.config import settings
 from shared.db import get_db
 from shared.models import Document
+
+try:
+    from pipeline.celery_app import celery_app  # container context (/app/pipeline/)
+except ImportError:
+    from services.ingestion.pipeline.celery_app import celery_app  # type: ignore[no-redef]
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Adaptive Doc Intelligence API", version="0.1.0")
 
@@ -41,6 +50,20 @@ def _compute_file_hash(data: bytes, mime_type: str) -> str:
         except Exception:
             pass
     return hashlib.sha256(data).hexdigest()
+
+
+def _dispatch_pipeline(job_id: uuid.UUID) -> None:
+    """Enqueue the full processing chain for a newly uploaded document."""
+    try:
+        celery_chain(
+            celery_app.signature("pipeline.validate_file", args=[str(job_id)]),
+            celery_app.signature("pipeline.preprocess"),
+            celery_app.signature("pipeline.ocr_bbox"),
+            celery_app.signature("pipeline.langdetect_doc"),
+            celery_app.signature("pipeline.mark_ready"),
+        ).apply_async()
+    except Exception:
+        logger.exception("Failed to dispatch pipeline for job_id=%s — document remains queued", job_id)
 
 
 @app.get("/health")
@@ -89,5 +112,7 @@ async def upload_file(
     )
     db.add(doc)
     db.commit()
+
+    _dispatch_pipeline(job_id)
 
     return {"job_id": str(job_id), "deduplicated": False}

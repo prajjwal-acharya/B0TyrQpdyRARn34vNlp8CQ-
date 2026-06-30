@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     postgres_user: str = "postgres"
     postgres_password: str = ""
 
+    # Redis / Celery broker
+    redis_url: str = "redis://redis:6379/0"
+
     # MinIO
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = ""
