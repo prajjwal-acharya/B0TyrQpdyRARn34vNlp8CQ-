@@ -19,7 +19,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from services.router.router.node import (
+    GEMINI_MODEL,
     GROQ_CONFIDENCE_THRESHOLD,
+    GROQ_MODEL,
+    ROUTER_TRACE_TAGS,
     _LLMDecision,
     _build_text_context,
     classify_document,
@@ -68,6 +71,13 @@ def _make_payload(
 
 def _make_state(payload: P1OutputPayload) -> dict:
     return {"p1_payload": payload, "decision": None}
+
+
+@pytest.fixture(autouse=True)
+def _mock_audit_log():
+    """Routing-decision audit logging hits Postgres — stub it out for unit tests."""
+    with patch("services.router.router.node.log_routing_decision") as mock_log:
+        yield mock_log
 
 
 def _mock_groq(doc_type: DocType, confidence: float, reasoning: str = "mock") -> MagicMock:
@@ -321,3 +331,55 @@ def test_router_decision_round_trip():
     )
     restored = RouterDecision.model_validate(original.model_dump())
     assert restored == original
+
+
+# ---------------------------------------------------------------------------
+# Audit logging (Phase 12 — every routing decision is traceable)
+# ---------------------------------------------------------------------------
+
+@patch("services.router.router.node.ChatGroq", _mock_groq(DocType.PASSPORT, 0.95, "has photo page and MRZ"))
+def test_groq_fast_path_logs_routing_decision(_mock_audit_log):
+    payload = _make_payload(["Passport No: A1234567"], filename="passport.pdf")
+
+    with patch("services.router.router.node.ChatGoogleGenerativeAI"):
+        result = classify_document(_make_state(payload))
+
+    _mock_audit_log.assert_called_once()
+    job_id, decision = _mock_audit_log.call_args.args
+    assert job_id == payload.job_id
+    assert decision == result["decision"]
+    assert _mock_audit_log.call_args.kwargs["model_used"] == f"groq:{GROQ_MODEL}"
+
+
+@patch("services.router.router.node.ChatGroq", _mock_groq(DocType.ITR, 0.60, "possibly ITR"))
+@patch("services.router.router.node.ChatGoogleGenerativeAI", _mock_gemini(DocType.ITR, 0.94, "ITR with AY and PAN"))
+@patch("services.router.router.node._get_minio")
+def test_gemini_fallback_logs_routing_decision(mock_get_minio, _mock_audit_log):
+    mock_minio = MagicMock()
+    mock_minio.get_object.return_value = MagicMock(read=lambda: b"fake-image-bytes")
+    mock_get_minio.return_value = mock_minio
+
+    payload = _make_payload(["Assessment Year 2024-25"], filename="itr.pdf")
+    result = classify_document(_make_state(payload))
+
+    _mock_audit_log.assert_called_once()
+    job_id, decision = _mock_audit_log.call_args.args
+    assert job_id == payload.job_id
+    assert decision == result["decision"]
+    assert _mock_audit_log.call_args.kwargs["model_used"] == f"gemini:{GEMINI_MODEL}"
+
+
+@patch("services.router.router.node.ChatGroq", _mock_groq(DocType.GST, 0.95))
+def test_groq_classify_tags_langsmith_run_with_router_node(_mock_audit_log):
+    import services.router.router.node as node_module
+
+    payload = _make_payload(["GSTIN: 1234"], filename="gst.pdf")
+
+    with patch("services.router.router.node.ChatGoogleGenerativeAI"):
+        classify_document(_make_state(payload))
+
+    invoke_call = node_module.ChatGroq.return_value.with_structured_output.return_value.invoke
+    invoke_call.assert_called_once()
+    config = invoke_call.call_args.kwargs["config"]
+    assert "router-node" in config["tags"]
+    assert ROUTER_TRACE_TAGS[0] == "router-node"
