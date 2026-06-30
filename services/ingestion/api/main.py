@@ -23,7 +23,7 @@ from shared.contracts import (
     PageImage,
 )
 from shared.db import get_db
-from shared.models import Document
+from shared.models import Document, RoutingDecision
 
 try:
     from pipeline.celery_app import celery_app  # container context (/app/pipeline/)
@@ -188,6 +188,43 @@ def get_job(job_id: str, db: Session = Depends(get_db)) -> JSONResponse:
         return JSONResponse(status_code=202, content=pending.model_dump(mode="json"))
 
     raise HTTPException(status_code=500, detail=f"Unexpected job status: {doc.status!r}")
+
+
+@app.get(
+    "/routing-decisions/{job_id}",
+    responses={404: {"description": "No routing decision logged for this job_id"}},
+)
+def get_routing_decision(job_id: str, db: Session = Depends(get_db)) -> dict:
+    """Return the full routing rationale logged for a job_id (Phase 12 — Audit log).
+
+    Backs the MoE-router demo Q&A: every routing decision is traceable back
+    to which model decided, at what confidence, and why.
+    """
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Invalid job_id format")
+
+    decision = (
+        db.query(RoutingDecision)
+        .filter(RoutingDecision.job_id == job_uuid)
+        .order_by(RoutingDecision.created_at.desc())
+        .first()
+    )
+    if decision is None:
+        raise HTTPException(
+            status_code=404, detail=f"No routing decision logged for job {job_id}"
+        )
+
+    return {
+        "job_id": str(decision.job_id),
+        "doc_type": decision.doc_type,
+        "confidence": decision.confidence,
+        "model_used": decision.model_used,
+        "reasoning": decision.reasoning,
+        "fallback_used": decision.fallback_used,
+        "timestamp": decision.created_at.isoformat(),
+    }
 
 
 @app.get("/health")

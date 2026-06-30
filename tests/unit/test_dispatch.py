@@ -69,6 +69,13 @@ def _mock_chat(doc_type: DocType, confidence: float) -> MagicMock:
     return mock_cls
 
 
+@pytest.fixture(autouse=True)
+def _mock_audit_log():
+    """Routing-decision audit logging hits Postgres — stub it out for unit tests."""
+    with patch("services.router.router.node.log_routing_decision") as mock_log:
+        yield mock_log
+
+
 # ---------------------------------------------------------------------------
 # route_by_doc_type — pure routing function
 # ---------------------------------------------------------------------------

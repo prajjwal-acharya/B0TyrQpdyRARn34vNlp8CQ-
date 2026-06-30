@@ -12,13 +12,16 @@ RUN pip install --no-cache-dir \
     langchain-groq \
     langchain-google-genai \
     langchain-core \
+    langsmith \
     pydantic \
     pydantic-settings \
     python-dotenv \
     pyyaml \
     httpx \
     minio \
-    pillow
+    pillow \
+    sqlalchemy \
+    psycopg2-binary
 
 COPY . .
 COPY ../../shared /app/shared

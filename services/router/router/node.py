@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from shared.contracts import P1OutputPayload
 
+from .audit import log_routing_decision
 from .schemas import DocType, RouterDecision, RouterState
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,10 @@ logger = logging.getLogger(__name__)
 GROQ_CONFIDENCE_THRESHOLD: float = float(os.getenv("GROQ_CONFIDENCE_THRESHOLD", "0.85"))
 GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama3-8b-8192")
 GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+# LangSmith trace tags applied to every LLM call made by this node, so the
+# router's decisions are filterable from the rest of the pipeline's traces.
+ROUTER_TRACE_TAGS: list[str] = ["router-node"]
 
 _SUPPORTED = ", ".join(e.value for e in DocType)
 
@@ -115,7 +120,8 @@ def _groq_classify(text_context: str) -> _LLMDecision:
         [
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"Classify this document:\n\n{text_context}"),
-        ]
+        ],
+        config={"tags": [*ROUTER_TRACE_TAGS, "groq", GROQ_MODEL], "run_name": "router_classify_groq"},
     )
 
 
@@ -136,7 +142,11 @@ def _gemini_classify(text_context: str, image_bytes: bytes | None) -> _LLMDecisi
         [
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=content),
-        ]
+        ],
+        config={
+            "tags": [*ROUTER_TRACE_TAGS, "gemini", GEMINI_MODEL],
+            "run_name": "router_classify_gemini",
+        },
     )
 
 
@@ -158,14 +168,14 @@ def classify_document(state: RouterState) -> dict[str, RouterDecision]:
             groq_result.doc_type,
             groq_result.confidence,
         )
-        return {
-            "decision": RouterDecision(
-                doc_type=groq_result.doc_type,
-                confidence=groq_result.confidence,
-                reasoning=groq_result.reasoning,
-                fallback_used=False,
-            )
-        }
+        decision = RouterDecision(
+            doc_type=groq_result.doc_type,
+            confidence=groq_result.confidence,
+            reasoning=groq_result.reasoning,
+            fallback_used=False,
+        )
+        log_routing_decision(payload.job_id, decision, model_used=f"groq:{GROQ_MODEL}")
+        return {"decision": decision}
 
     logger.info(
         "Groq confidence %.2f < threshold %.2f — escalating to Gemini Flash",
@@ -175,11 +185,11 @@ def classify_document(state: RouterState) -> dict[str, RouterDecision]:
     image_bytes = _fetch_first_page_image(payload)
     gemini_result = _gemini_classify(text_context, image_bytes)
 
-    return {
-        "decision": RouterDecision(
-            doc_type=gemini_result.doc_type,
-            confidence=gemini_result.confidence,
-            reasoning=gemini_result.reasoning,
-            fallback_used=True,
-        )
-    }
+    decision = RouterDecision(
+        doc_type=gemini_result.doc_type,
+        confidence=gemini_result.confidence,
+        reasoning=gemini_result.reasoning,
+        fallback_used=True,
+    )
+    log_routing_decision(payload.job_id, decision, model_used=f"gemini:{GEMINI_MODEL}")
+    return {"decision": decision}
