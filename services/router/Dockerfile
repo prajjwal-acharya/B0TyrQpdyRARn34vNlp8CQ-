@@ -6,7 +6,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir langchain langgraph langchain-groq pydantic pydantic-settings python-dotenv pyyaml
+RUN pip install --no-cache-dir \
+    langchain \
+    langgraph \
+    langchain-groq \
+    langchain-google-genai \
+    langchain-core \
+    pydantic \
+    pydantic-settings \
+    python-dotenv \
+    pyyaml \
+    httpx \
+    minio \
+    pillow
 
 COPY . .
 COPY ../../shared /app/shared
