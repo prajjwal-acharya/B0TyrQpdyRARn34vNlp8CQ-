@@ -6,15 +6,20 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- documents — raw document metadata (job_id = id)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS documents (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    filename    TEXT NOT NULL,
-    file_hash   TEXT NOT NULL UNIQUE,
-    mime_type   TEXT,
-    doc_type    TEXT,
-    status      TEXT NOT NULL DEFAULT 'pending',
-    minio_key   TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    filename     TEXT NOT NULL,
+    file_hash    TEXT NOT NULL UNIQUE,
+    mime_type    TEXT,
+    doc_type     TEXT,
+    status       TEXT NOT NULL DEFAULT 'pending',
+    minio_key    TEXT,
+    -- Pipeline processing fields (statuses: queued→processing→preprocessed→ready_for_routing|failed)
+    page_count   INTEGER,
+    lang         TEXT,
+    bbox_data    JSONB,
+    error_detail TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ---------------------------------------------------------------------------
