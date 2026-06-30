@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -33,10 +33,16 @@ class RouterDecision(BaseModel):
 
 
 class RouterState(TypedDict):
-    """LangGraph state flowing through the Phase 2 routing graph."""
+    """LangGraph state flowing through the Phase 2 routing + dispatch graph.
+
+    ``dispatched_to`` and ``needs_manual_review`` are populated by the
+    conditional-dispatch branch (see ``graph.py``) once ``decision`` exists.
+    """
 
     p1_payload: P1OutputPayload
     decision: RouterDecision | None
+    dispatched_to: NotRequired[str | None]
+    needs_manual_review: NotRequired[bool]
 
 
 __all__ = ["DocType", "RouterDecision", "RouterState"]

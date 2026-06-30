@@ -33,8 +33,21 @@ def run(job_id: str) -> None:
     result = router_graph.invoke({"p1_payload": payload, "decision": None})
     decision = result["decision"]
 
-    print(json.dumps(decision.model_dump(), indent=2))
-    logger.info("Classification: %s (confidence=%.2f)", decision.doc_type, decision.confidence)
+    output = {
+        "decision": decision.model_dump() if decision else None,
+        "dispatched_to": result.get("dispatched_to"),
+        "needs_manual_review": result.get("needs_manual_review", False),
+    }
+    print(json.dumps(output, indent=2))
+    if result.get("needs_manual_review"):
+        logger.warning("Routed to manual review fallback (decision=%s)", decision)
+    else:
+        logger.info(
+            "Classification: %s (confidence=%.2f) -> dispatched to %s",
+            decision.doc_type,
+            decision.confidence,
+            result.get("dispatched_to"),
+        )
 
 
 if __name__ == "__main__":

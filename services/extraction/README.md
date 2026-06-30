@@ -27,8 +27,14 @@ extraction/
 │   ├── bank_statement/
 │   ├── form_16/
 │   ├── salary_slip/
+│   ├── gst/
 │   └── property_deed/
 ├── nodes/            # Reusable LangGraph nodes (OCR, RAG retrieval, LLM call, etc.)
 ├── chains/           # LCEL chains (prompt assembly, output parsing)
 └── Dockerfile
 ```
+
+Each `graphs/<doc_type>/graph.py` is currently a Phase 2B placeholder: a
+single-node subgraph that just records it was entered, so the Phase 2
+conditional dispatch (`services/router/router/graph.py`) can be proven
+correct in LangGraph Studio. Real per-field extraction lands in Phase 5.
